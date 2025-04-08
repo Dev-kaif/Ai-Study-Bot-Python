@@ -1,120 +1,73 @@
-import tkinter as tk
-from tkinter import scrolledtext, messagebox, ttk, filedialog
-import threading
+import ttkbootstrap as ttkb
+from ttkbootstrap.constants import *
+from tkinter import filedialog, messagebox, StringVar
+from tkinter.scrolledtext import ScrolledText
 from utils.ai_utils import generate_summary, generate_flashcards, generate_quiz
 from utils.youtube_utils import get_youtube_transcript
 from utils.input_utils import extract_text_from_pdf, extract_text_from_txt
+import threading
 
-
-
-# === Theme Setup ===
-BG_COLOR = "#f1f3f5"
-HEADER_BG = "#343a40"
-HEADER_FG = "#ffffff"
-TEXT_COLOR = "#212529"
-BUTTON_BG = "#007bff"
-BUTTON_FG = "#ffffff"
-FONT_FAMILY = "Segoe UI"
-FLASHCARD_BG = "#ffffff"
-FLASHCARD_BORDER = "#ced4da"
 
 # === Root Setup ===
-root = tk.Tk()
+root = ttkb.Window(themename="flatly")
 root.title("StudyBot - AI Study Assistant")
-root.geometry("850x700")
-root.configure(bg=BG_COLOR)
+root.geometry("1024x768")
+root.resizable(True, True)
 
-# === Header ===
-header = tk.Frame(root, bg=HEADER_BG, height=60)
-header.pack(fill="x")
-title_label = tk.Label(
-    header,
-    text="StudyBot - Your AI Study Assistant",
-    font=(FONT_FAMILY, 20, "bold"),
-    bg=HEADER_BG,
-    fg=HEADER_FG,
-    pady=10
-)
-title_label.pack()
+# === Header Section ===
+header = ttkb.Frame(root, padding=20)
+header.pack(fill=X)
+ttkb.Label(header, text="📚 StudyBot", font=("Segoe UI", 28, "bold"), bootstyle="primary").pack(anchor=W)
+ttkb.Label(header, text="AI-Powered Study Assistant — Summary • Flashcards • Quiz Generator", font=("Segoe UI", 12), foreground="#555").pack(anchor=W, pady=5)
 
-# === Input Label ===
-input_label = tk.Label(
-    root,
-    text="Enter your study material:",
-    font=(FONT_FAMILY, 12, "bold"),
-    bg=BG_COLOR,
-    fg=TEXT_COLOR
-)
-input_label.pack(anchor="w", padx=20, pady=(20, 5))
+# === Input Section ===
+input_section = ttkb.Labelframe(root, text="📥 Input Material", padding=15, bootstyle="info")
+input_section.pack(fill=X, padx=20, pady=10)
+input_text = ScrolledText(input_section, height=10, font=("Segoe UI", 11), wrap="word")
+input_text.pack(fill=BOTH, expand=True)
 
-# === Input Area ===
-input_text = scrolledtext.ScrolledText(root, height=10, wrap=tk.WORD, font=(FONT_FAMILY, 12))
-input_text.pack(fill="both", expand=False, padx=20, pady=(0, 10))
+# === Input Buttons Section ===
+input_buttons = ttkb.Frame(root)
+input_buttons.pack(fill=X, padx=20)
 
-# === Button Frame ===
-button_frame = tk.Frame(root, bg=BG_COLOR)
-button_frame.pack(pady=10)
+def create_button(text, command, style="primary-outline"):
+    ttkb.Button(input_buttons, text=text, command=command, bootstyle=style).pack(side=LEFT, padx=6, pady=10)
 
-def create_styled_button(text, command, col, row=0):
-    return tk.Button(
-        button_frame,
-        text=text,
-        command=command,
-        font=(FONT_FAMILY, 11, "bold"),
-        bg=BUTTON_BG,
-        fg=BUTTON_FG,
-        width=20,
-        activebackground="#0056b3",
-        relief="raised",
-        bd=2
-    ).grid(row=row, column=col, padx=12, pady=5)
+create_button("📄 PDF", lambda: load_pdf(), "info-outline")
+create_button("📜 TXT", lambda: load_txt(), "info-outline")
+create_button("📺 YouTube Transcript", lambda: load_youtube(), "info-outline")
+create_button("🧹 Clear Input", lambda: input_text.delete("1.0", "end"), "danger-outline")
 
-create_styled_button("Generate Summary", lambda: threaded_task(generate_summary), 0)
-create_styled_button("Generate Flashcards", lambda: threaded_task(generate_flashcards), 1)
-create_styled_button("Generate Quiz", lambda: threaded_task(generate_quiz), 2)
-create_styled_button("Clear Input", lambda: input_text.delete("1.0", tk.END), 0, row=1)
-create_styled_button("Clear Output", lambda: clear_output(), 1, row=1)
-create_styled_button("Import PDF", lambda: load_pdf(), 0, row=2)
-create_styled_button("Import TXT", lambda: load_txt(), 1, row=2)
-create_styled_button("Import YouTube", lambda: load_youtube(), 2, row=2)
+# === Generation Buttons Section ===
+gen_buttons = ttkb.Frame(root)
+gen_buttons.pack(fill=X, padx=20, pady=(0, 10))
+create_button("Summary", lambda: threaded_task(generate_summary), "success")
+create_button("Flashcards", lambda: threaded_task(generate_flashcards), "success")
 
-# === Output Label ===
-output_label = tk.Label(
-    root,
-    text="Output:",
-    font=(FONT_FAMILY, 12, "bold"),
-    bg=BG_COLOR,
-    fg=TEXT_COLOR
-)
-output_label.pack(anchor="w", padx=20, pady=(20, 5))
+create_button("Quiz", lambda: threaded_task(generate_quiz), "success")
+create_button("Clear Output", lambda: clear_output(), "danger-outline")
 
-# === Output Frame for Scrollable Results ===
-output_frame = tk.Frame(root, bg=BG_COLOR)
-output_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-
-canvas = tk.Canvas(output_frame, bg=BG_COLOR, highlightthickness=0)
-scrollbar = ttk.Scrollbar(output_frame, orient="vertical", command=canvas.yview)
-scrollable_frame = tk.Frame(canvas, bg=BG_COLOR)
-
-scrollable_frame.bind(
-    "<Configure>",
-    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-)
-
+# === Output Section ===
+output_section = ttkb.Labelframe(root, text="📤 AI Output", padding=15, bootstyle="secondary")
+output_section.pack(fill=BOTH, expand=True, padx=20, pady=(5,15))
+canvas = ttkb.Canvas(output_section, borderwidth=0)
+scrollbar = ttkb.Scrollbar(output_section, orient=VERTICAL, command=canvas.yview)
+scrollable_frame = ttkb.Frame(canvas, bootstyle="default")
+scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 canvas.configure(yscrollcommand=scrollbar.set)
+canvas.pack(side=LEFT, fill=BOTH, expand=True)
+scrollbar.pack(side=RIGHT, fill=Y)
 
-canvas.pack(side="left", fill="both", expand=True)
-scrollbar.pack(side="right", fill="y")
+# === Enable Mousepad (Touchpad) Scrolling for Canvas ===
+def _on_mousewheel(event):
+    canvas.yview_scroll(-1 * int(event.delta / 120), "units")
+canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
+canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-1, "units"))
+canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(1, "units"))
 
-def enable_touchpad_scroll(widget):
-    widget.bind_all("<MouseWheel>", lambda e: widget.yview_scroll(int(-1*(e.delta/120)), "units"))
-    widget.bind_all("<Button-4>", lambda e: widget.yview_scroll(-1, "units"))  # Linux scroll up
-    widget.bind_all("<Button-5>", lambda e: widget.yview_scroll(1, "units"))   # Linux scroll down
-
-enable_touchpad_scroll(input_text)
-enable_touchpad_scroll(canvas)
-
+# === Output Utility Functions ===
 def clear_output():
     global quiz_blocks
     quiz_blocks = []
@@ -123,45 +76,26 @@ def clear_output():
 
 def threaded_task(generator_fn):
     def worker():
-        text = input_text.get("1.0", tk.END).strip()
+        text = input_text.get("1.0", "end").strip()
         clear_output()
-
         if not text:
             add_message("⚠️ Please enter some content first.")
             return
-
-        if generator_fn == generate_summary:
-            add_message("⏳ Generating summary...")
-        elif generator_fn == generate_flashcards:
-            add_message("⏳ Generating flashcards...")
-        elif generator_fn == generate_quiz:
-            add_message("⏳ Generating quiz...")
-
+        add_message(f"⏳ Generating {generator_fn.__name__.split('_')[-1].capitalize()}...")
         raw_output = generator_fn(text)
         clear_output()
-
         if generator_fn == generate_flashcards:
             format_flashcards(raw_output)
         elif generator_fn == generate_quiz:
             format_quiz(raw_output)
         else:
             add_message(raw_output)
-
     threading.Thread(target=worker).start()
 
 def add_message(msg):
-    label = tk.Label(
-        scrollable_frame,
-        text=msg,
-        font=(FONT_FAMILY, 12),
-        bg=BG_COLOR,
-        fg=TEXT_COLOR,
-        wraplength=780,
-        justify="left",
-        anchor="w"
-    )
-    label.pack(anchor="w", pady=5)
+    ttkb.Label(scrollable_frame, text=msg, font=("Segoe UI", 12), wraplength=900, justify=LEFT).pack(anchor="w", pady=5)
 
+# === Flashcards Renderer ===
 def format_flashcards(raw):
     cards = raw.strip().split("\n")
     q, a = "", ""
@@ -169,23 +103,22 @@ def format_flashcards(raw):
         line = line.strip()
         if not line:
             continue
-        if line.lower().startswith("q") or line.lower().startswith("question"):
+        if line.lower().startswith("q"):
             q = line.split(":", 1)[-1].strip()
-        elif line.lower().startswith("a") or line.lower().startswith("answer"):
+        elif line.lower().startswith("a"):
             a = line.split(":", 1)[-1].strip()
         if q and a:
             create_flashcard(q, a)
             q, a = "", ""
 
 def create_flashcard(question, answer):
-    card = tk.Frame(scrollable_frame, bg=FLASHCARD_BG, bd=2, relief="groove")
-    card.pack(fill="x", padx=10, pady=10, anchor="w")
-    tk.Label(card, text="Q: " + question, font=(FONT_FAMILY, 11, "bold"), bg=FLASHCARD_BG, wraplength=750, justify="left").pack(anchor="w", pady=(5, 2), padx=10)
-    tk.Label(card, text="A: " + answer, font=(FONT_FAMILY, 11), bg=FLASHCARD_BG, wraplength=750, justify="left").pack(anchor="w", pady=(0, 5), padx=10)
+    card = ttkb.Frame(scrollable_frame, padding=10, relief="ridge", bootstyle="light")
+    card.pack(fill=X, padx=5, pady=8)
+    ttkb.Label(card, text=f"❓ Q: {question}", font=("Segoe UI", 11, "bold"), wraplength=850).pack(anchor="w")
+    ttkb.Label(card, text=f"✅ A: {answer}", font=("Segoe UI", 11), wraplength=850).pack(anchor="w", pady=(5, 0))
 
 # === Quiz System ===
 quiz_blocks = []
-
 def format_quiz(raw):
     global quiz_blocks
     quiz_blocks.clear()
@@ -193,7 +126,6 @@ def format_quiz(raw):
     q = ""
     options = []
     count = 1
-
     for line in lines:
         line = line.strip()
         if not line:
@@ -208,33 +140,14 @@ def format_quiz(raw):
             options.append(line)
     if q:
         create_quiz_block(count, q, options)
-
-    tk.Button(
-        scrollable_frame,
-        text="Submit Quiz",
-        command=evaluate_quiz,
-        bg=BUTTON_BG,
-        fg="#ffffff",
-        font=(FONT_FAMILY, 12, "bold"),
-        relief="raised"
-    ).pack(pady=10)
+    ttkb.Button(scrollable_frame, text="✅ Submit Quiz", command=evaluate_quiz, bootstyle="success").pack(pady=10)
 
 def create_quiz_block(num, question, options):
-    block = tk.Frame(scrollable_frame, bg="#ffffff", bd=2, relief="groove")
-    block.pack(fill="x", padx=10, pady=10, anchor="w")
-
-    tk.Label(
-        block,
-        text=f"Question {num}: {question}",
-        font=(FONT_FAMILY, 11, "bold"),
-        bg="#ffffff",
-        wraplength=750,
-        justify="left"
-    ).pack(anchor="w", padx=10, pady=5)
-
-    selected = tk.StringVar()
+    block = ttkb.Frame(scrollable_frame, padding=12, relief="ridge", bootstyle="light")
+    block.pack(fill=X, padx=10, pady=10)
+    ttkb.Label(block, text=f"📝 Question {num}: {question}", font=("Segoe UI", 11, "bold"), wraplength=850).pack(anchor="w", pady=5)
+    selected = StringVar()
     buttons = []
-
     correct_option = None
     cleaned_options = []
     for opt in options:
@@ -243,33 +156,19 @@ def create_quiz_block(num, question, options):
             cleaned_options.append(correct_option)
         else:
             cleaned_options.append(opt)
-
     if not correct_option and cleaned_options:
         correct_option = cleaned_options[0]
-
     for opt in cleaned_options:
-        btn = tk.Radiobutton(
-            block,
-            text=opt,
-            variable=selected,
-            value=opt,
-            font=(FONT_FAMILY, 11),
-            bg="#ffffff",
-            anchor="w",
-            wraplength=750,
-            justify="left"
-        )
-        btn.pack(anchor="w", padx=25, pady=2)
+        btn = ttkb.Radiobutton(block, text=opt, variable=selected, value=opt)
+        btn.pack(anchor="w", padx=15, pady=2)
         buttons.append(btn)
-
-    feedback_label = tk.Label(block, text="", font=(FONT_FAMILY, 11), bg="#ffffff")
-    feedback_label.pack(anchor="w", padx=10, pady=5)
-
+    feedback = ttkb.Label(block, text="", font=("Segoe UI", 11))
+    feedback.pack(anchor="w", padx=10, pady=5)
     quiz_blocks.append({
         "question": question,
         "correct": correct_option,
         "selected_var": selected,
-        "feedback_label": feedback_label,
+        "feedback_label": feedback,
         "radio_buttons": buttons
     })
 
@@ -280,58 +179,50 @@ def evaluate_quiz():
         selected = q["selected_var"].get()
         correct = q["correct"]
         label = q["feedback_label"]
-
         for btn in q["radio_buttons"]:
             btn.config(state="disabled")
-
         if selected == correct:
             score += 1
-            label.config(text="✅ Correct", fg="green")
+            label.config(text="✅ Correct", foreground="green")
         else:
-            correct_display = correct if correct else "Unknown (not marked)"
-            label.config(text=f"❌ Incorrect. Correct Answer: {correct_display}", fg="red")
-
+            label.config(text=f"❌ Incorrect — Correct: {correct}", foreground="red")
     messagebox.showinfo("Quiz Result", f"You got {score} out of {total} correct!")
 
-# === Input Loaders ===
+# === File Loaders ===
 def load_pdf():
     path = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
     if path:
         text = extract_text_from_pdf(path)
-        input_text.delete("1.0", tk.END)
-        input_text.insert(tk.END, text)
+        input_text.delete("1.0", "end")
+        input_text.insert("end", text)
 
 def load_txt():
     path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
     if path:
         text = extract_text_from_txt(path)
-        input_text.delete("1.0", tk.END)
-        input_text.insert(tk.END, text)
-
+        input_text.delete("1.0", "end")
+        input_text.insert("end", text)
 
 def load_youtube():
     def fetch():
-        url = yt_entry.get().strip()
+        url = entry.get().strip()
         if not url:
             messagebox.showerror("Error", "Please enter a YouTube URL.")
             return
         try:
             text = get_youtube_transcript(url)
-            input_text.delete("1.0", tk.END)
-            input_text.insert(tk.END, text)
-            yt_popup.destroy()
+            input_text.delete("1.0", "end")
+            input_text.insert("end", text)
+            popup.destroy()
         except Exception as e:
             messagebox.showerror("Failed", f"Could not fetch transcript:\n{e}")
-
-    yt_popup = tk.Toplevel(root)
-    yt_popup.title("YouTube Transcript")
-    yt_popup.geometry("400x150")
-    tk.Label(yt_popup, text="Enter YouTube Video URL:").pack(pady=10)
-    yt_entry = tk.Entry(yt_popup, width=50)
-    yt_entry.pack(pady=5)
-    tk.Button(yt_popup, text="Fetch Transcript", command=fetch).pack(pady=10)
-
-
+    popup = ttkb.Toplevel(root)
+    popup.title("🎥 YouTube Transcript")
+    popup.geometry("420x150")
+    ttkb.Label(popup, text="Enter YouTube Video URL:").pack(pady=10)
+    entry = ttkb.Entry(popup, width=55)
+    entry.pack(pady=5)
+    ttkb.Button(popup, text="Fetch Transcript", command=fetch, bootstyle="primary").pack(pady=10)
 
 # === Run App ===
 root.mainloop()
