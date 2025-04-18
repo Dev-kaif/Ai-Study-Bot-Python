@@ -1,4 +1,3 @@
-```markdown
 # 📚 AI Study Assistant (Powered by Gemini API)
 
 This Python module helps students generate useful study material from any text content. It uses the **Google Gemini API** to generate:
@@ -103,5 +102,4 @@ pip install -r requirements.txt
 ## 🌟 Star This Repo
 
 If you found this useful, consider starring the repo 🌟
-```
 
